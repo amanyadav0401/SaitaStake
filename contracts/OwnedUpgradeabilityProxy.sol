@@ -83,7 +83,7 @@ contract OwnedUpgradeabilityProxy {
      * @param newOwner The address to transfer ownership to.
      */
     function transferProxyOwnership(address newOwner) public onlyProxyOwner {
-        require(newOwner != address(0), 'OwnedUpgradeabilityProxy: INVALID');
+        require(newOwner != address(0), "OwnedUpgradeabilityProxy: INVALID");
         emit ProxyOwnershipTransferred(proxyOwner(), newOwner);
         setUpgradeabilityOwner(newOwner);
     }
@@ -149,17 +149,17 @@ contract OwnedUpgradeabilityProxy {
      */
     function _upgradeTo(address newImplementation) internal {
         address currentImplementation = implementation();
-        require(currentImplementation != newImplementation, 'OwnedUpgradeabilityProxy: INVALID');
+        require(currentImplementation != newImplementation, "OwnedUpgradeabilityProxy: INVALID");
         setImplementation(newImplementation);
         emit Upgraded(newImplementation);
     }
 
     function _fallback() internal {
         if (maintenance()) {
-            require(msg.sender == proxyOwner(), 'OwnedUpgradeabilityProxy: FORBIDDEN');
+            require(msg.sender == proxyOwner(), "OwnedUpgradeabilityProxy: FORBIDDEN");
         }
         address _impl = implementation();
-        require(_impl != address(0), 'OwnedUpgradeabilityProxy: INVALID');
+        require(_impl != address(0), "OwnedUpgradeabilityProxy: INVALID");
         assembly {
             let ptr := mload(0x40)
             calldatacopy(ptr, 0, calldatasize())
@@ -177,7 +177,7 @@ contract OwnedUpgradeabilityProxy {
      * @dev Throws if called by any account other than the owner.
      */
     modifier onlyProxyOwner() {
-        require(msg.sender == proxyOwner(), 'OwnedUpgradeabilityProxy: FORBIDDEN');
+        require(msg.sender == proxyOwner(), "OwnedUpgradeabilityProxy: FORBIDDEN");
         _;
     }
 }
