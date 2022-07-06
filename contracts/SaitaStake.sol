@@ -1,6 +1,6 @@
 //SPDX-License-Identifier:UNLICENSED
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.7;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -15,34 +15,34 @@ contract SaitaStaking is Ownable, Initializable, ReentrancyGuard {
     /*
     * @dev struct containing user transactions and total amount staked.
     */
-        struct Staking {
+    struct Staking {
         uint256 txNo; //total number of staking transactions done by the user.
         uint256 totalAmount; //total amount of all the individual stakes.
         mapping(uint256 => UserTransaction) stakingPerTx; // mapping to individual stakes.
     }
+
     /*
     * @dev Struct containing individual transactions amount and lock time.
     */
     struct UserTransaction {
         uint256 amount; // amount of the individual stake.
         uint256 time; // total time for staking.
-        uint percent; //reward percent at the time of staking.
+        uint256 percent; //reward percent at the time of staking.
         uint256 lockedUntil; // locked time after which rewards to be claimed.
         bool stakingOver; // if the staking is over or not, i.e. reward is claimed || !.
-
     }
+
+    mapping(address => Staking) public stakingTx; // Mapping to user stake total transactions and total amount.
+    mapping(uint256 => uint256) public rewardPercent; // Mapping to individual transactions for a user.
 
     event StakeDeposit(
         uint256 _txNo,
         uint256 _amount,
-        uint _percent,
+        uint256 _percent,
         uint256 _lockPeriod,
         uint256 _lockedUntil
     );
     event RewardWithdraw(uint256 _txNo, uint256 _amount, uint256 _reward);
-
-    mapping(address => Staking) public stakingTx; // Mapping to user stake total transactions and total amount.
-    mapping(uint256 => uint256) public rewardPercent; // Mapping to individual transactions for a user.
 
     /* 
     * @dev initializing the staking for a particular token address.
@@ -50,36 +50,21 @@ contract SaitaStaking is Ownable, Initializable, ReentrancyGuard {
     */
     function initialize(IERC20 _token) public initializer {
         token = _token;
-    }
-
-    /*
-    * @dev to add stake, it denotes a transaction number to each staking and 
-      records individual transactions to UserTransaction.
-    * @param staking time period and amount to be staked.  
-    */
-    function addStake(uint256 _time, uint256 _amount) internal {
-        Staking storage stakes = stakingTx[msg.sender];
-        token.safeTransferFrom(msg.sender, address(this), _amount);
-        stakes.txNo++;
-        stakes.totalAmount += _amount;
-        stakes.stakingPerTx[stakes.txNo].amount = _amount;
-        stakes.stakingPerTx[stakes.txNo].time = _time;
-        stakes.stakingPerTx[stakes.txNo].lockedUntil =
-            block.timestamp +
-            _time;
-        stakes.stakingPerTx[stakes.txNo].percent=rewardPercent[_time];
+        rewardPercent[30 days] = 2;
+        rewardPercent[60 days] = 4;
+        rewardPercent[90 days] = 6;
     }
 
     /* 
-    * @dev stake function call for addStake.
+    * @dev stake function call for _addStake.
     * @param staking time period and amount to be staked.
     */
-    function stake(uint256 _time, uint256 _amount) external nonReentrant{
+    function stake(uint256 _time, uint256 _amount) external nonReentrant {
         Staking storage stakes = stakingTx[msg.sender];
-        require(_amount != 0, "Null amount!");
-        require(_time != 0, "Null time!");
-        require(rewardPercent[_time] != 0, "Time not specified.");
-        addStake(_time, _amount);
+        require(_amount != 0, "SaitaStake: Null amount!");
+        require(_time != 0, "SaitaStake: Null time!");
+        require(rewardPercent[_time] != 0, "SaitaStake: Time not specified.");
+        _addStake(_time, _amount);
         emit StakeDeposit(
             stakes.txNo,
             _amount,
@@ -87,6 +72,33 @@ contract SaitaStaking is Ownable, Initializable, ReentrancyGuard {
             stakes.stakingPerTx[stakes.txNo].percent,
             stakes.stakingPerTx[stakes.txNo].lockedUntil
         );
+    }
+
+    /* 
+    * @dev calls internally to rewards function and if there is a claimable reward 
+      the function transfer the rewards and ends the staking.
+    * @param transaction number for the stake.
+    */
+    function claim(uint256 _txNo) external nonReentrant {
+        Staking storage stakes = stakingTx[msg.sender];
+        require(
+            stakes.stakingPerTx[_txNo].stakingOver != true,
+            "SaitaStake: Rewards already claimed."
+        );
+        require(
+            block.timestamp > stakes.stakingPerTx[_txNo].lockedUntil,
+            "SaitaStake: Stake period is not over."
+        );
+
+        uint256 reward = rewards(_txNo);
+        uint256 amount = stakes.stakingPerTx[_txNo].amount;
+        uint256 totalAmount = amount + reward;
+
+        stakes.totalAmount -= amount;
+        token.safeTransfer(msg.sender, totalAmount);
+        stakes.stakingPerTx[_txNo].stakingOver = true;
+
+        emit RewardWithdraw(_txNo, amount, reward);
     }
 
     /*
@@ -108,36 +120,12 @@ contract SaitaStaking is Ownable, Initializable, ReentrancyGuard {
        * @return uint256(claimable reward).
     */
     function rewards(uint256 _txNo) public view returns (uint256) {
-        uint256 rewardBalance;
         Staking storage stakes = stakingTx[msg.sender];
+        
+        uint256 rewardBalance;
         uint256 amount = stakes.stakingPerTx[_txNo].amount;
         rewardBalance = (amount * stakes.stakingPerTx[_txNo].percent) / 100;
         return rewardBalance;
-    }
-
-    /* 
-    * @dev calls internally to rewards function and if there is a claimable reward 
-      the function transfer the rewards and ends the staking.
-    * @param transaction number for the stake.
-    */
-    function claim(uint256 _txNo) public nonReentrant{
-        Staking storage stakes = stakingTx[msg.sender];
-        require(
-            stakes.stakingPerTx[_txNo].stakingOver != true,
-            "Rewards already claimed."
-        );
-        require(
-            block.timestamp > stakes.stakingPerTx[_txNo].lockedUntil,
-            "Stake period is not over."
-        );
-        uint256 reward = rewards(_txNo);
-        require(reward != 0, "Not eligible for reward!");
-        uint256 amount = stakes.stakingPerTx[_txNo].amount;
-        uint256 totalAmount = amount + reward;
-        stakes.totalAmount -= amount;
-        token.safeTransfer(msg.sender, totalAmount);
-        stakes.stakingPerTx[_txNo].stakingOver = true;
-        emit RewardWithdraw(_txNo, amount, reward);
     }
 
     /*
@@ -145,10 +133,28 @@ contract SaitaStaking is Ownable, Initializable, ReentrancyGuard {
      * @param staking period and apy
      */
     function setRewardPercent(uint256 _time, uint256 _percent)
-        public
+        external
         onlyOwner
     {
+        require(_percent > 0 && _percent <= 20, "SaitaStake: Not in Range");
         rewardPercent[_time] = _percent;
     }
-}
-    
+
+    /*
+    * @dev to add stake, it denotes a transaction number to each staking and 
+      records individual transactions to UserTransaction.
+    * @param staking time period and amount to be staked.  
+    */
+    function _addStake(uint256 _time, uint256 _amount) internal {
+        Staking storage stakes = stakingTx[msg.sender];
+        token.safeTransferFrom(msg.sender, address(this), _amount);
+        stakes.txNo++;
+        stakes.totalAmount += _amount;
+        stakes.stakingPerTx[stakes.txNo].amount = _amount;
+        stakes.stakingPerTx[stakes.txNo].time = _time;
+        stakes.stakingPerTx[stakes.txNo].lockedUntil =
+            block.timestamp +
+            _time;
+        stakes.stakingPerTx[stakes.txNo].percent = rewardPercent[_time];
+    }
+} 
