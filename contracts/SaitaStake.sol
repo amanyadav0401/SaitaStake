@@ -137,7 +137,7 @@ contract SaitaStaking is Ownable, Initializable, ReentrancyGuard {
         onlyOwner
     {
         require(_percent > 0 && _percent <= 20, "SaitaStake: Not in Range");
-        require(_time>=30,"Minimum time not met!");
+        require(_time>=30 days,"Minimum time not met!");
         rewardPercent[_time] = _percent;
     }
 
