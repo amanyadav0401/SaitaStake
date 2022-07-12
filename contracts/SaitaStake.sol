@@ -124,19 +124,19 @@ contract SaitaStaking is Ownable, Initializable, ReentrancyGuard {
         
         uint256 rewardBalance;
         uint256 amount = stakes.stakingPerTx[_txNo].amount;
-        rewardBalance = (amount * stakes.stakingPerTx[_txNo].percent) / 100;
+        rewardBalance = (amount * (stakes.stakingPerTx[_txNo].time*stakes.stakingPerTx[_txNo].percent))/(3650000);
         return rewardBalance;
     }
 
     /*
-     * @dev, used by the owner to define a staking period and the apy on that particular period.
+     * @dev, used by the owner to define a staking period and the apy on that particular period, APY will be set in BP i.e. Basis Points where 1%=100BP.
      * @param staking period and apy
      */
-    function setRewardPercent(uint256 _time, uint256 _percent)
+    function setRewardPercent(uint256 _time, uint256 _percentInBP)
         external
         onlyOwner
     {
-        require(_percent > 0 && _percent <= 20, "SaitaStake: Not in Range");
+        require(_percent > 0 && _percent <= 2000, "SaitaStake: Not in Range");
         require(_time>=30 days,"Minimum time not met!");
         rewardPercent[_time] = _percent;
     }
