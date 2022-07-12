@@ -50,9 +50,9 @@ contract SaitaStaking is Ownable, Initializable, ReentrancyGuard {
     */
     function initialize(IERC20 _token) public initializer {
         token = _token;
-        rewardPercent[30 days] = 2;
-        rewardPercent[60 days] = 4;
-        rewardPercent[90 days] = 6;
+        rewardPercent[30 days] = 200;
+        rewardPercent[60 days] = 400;
+        rewardPercent[90 days] = 600;
     }
 
     /* 
