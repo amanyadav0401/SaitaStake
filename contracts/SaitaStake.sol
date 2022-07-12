@@ -124,7 +124,7 @@ contract SaitaStaking is Ownable, Initializable, ReentrancyGuard {
         
         uint256 rewardBalance;
         uint256 amount = stakes.stakingPerTx[_txNo].amount;
-        rewardBalance = (amount * (stakes.stakingPerTx[_txNo].time*stakes.stakingPerTx[_txNo].percent))/(3650000);
+        rewardBalance = (amount * (stakes.stakingPerTx[_txNo].time*stakes.stakingPerTx[_txNo].percent))/(365 days *10000);
         return rewardBalance;
     }
 
